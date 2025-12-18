@@ -43,7 +43,7 @@ class JadwalController extends Controller
         //     'data' => $jadwal
         // ]);
 
-        $jadwal = Jadwal::paginate(5);
+        $jadwal = Jadwal::all();
 
         return JadwalResource::collection($jadwal);
     }
@@ -172,7 +172,6 @@ class JadwalController extends Controller
      */
     public function update(UpdateJadwalRequest $request, string $id)
     {
-
         $data = $request->validated();
 
         $findJadwal = Jadwal::findOrFail($id);

@@ -40,6 +40,31 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        'sanctum' => [
+            'driver'   => 'sanctum',
+            'provider' => 'users',
+        ], 
+        
+        'sanctum_penumpang' => [
+            'driver'   => 'sanctum',
+            'provider' => 'penumpangs',
+        ],
+
+        'sanctum_petugas' => [
+            'driver'   => 'sanctum',
+            'provider' => 'petugas',
+        ],        
+
+        'penumpang' => [
+            'driver'   => 'session',
+            'provider' => 'penumpangs',
+        ],
+
+        'petugas' => [
+            'driver'   => 'session',
+            'provider' => 'petugas',
+        ],        
     ],
 
     /*
@@ -64,6 +89,16 @@ return [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', App\Models\User::class),
         ],
+
+        'penumpangs' => [
+            'driver' => 'eloquent',
+            'model'  => App\Models\Penumpang::class,
+        ],
+
+        'petugas' => [
+            'driver' => 'eloquent',
+            'model'  => App\Models\Petugas::class,
+        ],        
 
         // 'users' => [
         //     'driver' => 'database',

@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Penumpang;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 
 class PenumpangSeeder extends Seeder
 {
@@ -15,7 +16,9 @@ class PenumpangSeeder extends Seeder
     {
         // Buat Akun Penumpang Testing
         $penumpangTesting = Penumpang::factory()->create([
-            'nama' => 'PenumpangTesting',
+            'name' => 'PenumpangTesting',
+            'email' => 'test@example.com',
+            'email_verified_at' => Carbon::now(),
             'nomor_telepon' => '089668914466',
             'password' => bcrypt('password'),
         ]);

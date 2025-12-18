@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use App\Http\Requests\Api\V1\Tiket\StoreTiketRequest;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Jadwal\UpdateJadwalRequest;
+use App\Http\Requests\Api\V1\Tiket\UpdateTiketRequest;
 use App\Http\Requests\Api\V1\Tiket\ValidateTiketRequest;
 use App\Http\Requests\Api\V1\Tiket\ValidateTiketWithOutNomorKendaraanRequest;
 use Illuminate\Http\Request;
@@ -14,16 +15,93 @@ use App\Models\Jadwal;
 use App\Models\Tiket;
 use Throwable;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 
 class TiketController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $tikets = Tiket::with(['penumpang', 'jadwal'])->get();
+            // =========================
+            // 1) META GLOBAL (TIDAK TERPENGARUH QUERY)
+            // =========================
+            $terlambat = now(); // atau now()->subMinutes(15)
+
+            $metaGlobal = [
+                'total' => Tiket::count(),
+                'menungguVerifikasi' => Tiket::where('status', 'menunggu_verifikasi')->count(),
+                'terverifikasi' => Tiket::where('status', 'terverifikasi')->count(),
+                'dibatalkan' => Tiket::where('status', 'dibatalkan')->count(),
+                'kadaluarsa' => Tiket::whereHas('jadwal', fn ($q) => $q->where('waktu_berangkat', '<=', $terlambat))->count(),
+            ];
+            $metaGlobal['dibatalkanKadaluarsa'] = (int) ($metaGlobal['dibatalkan'] + $metaGlobal['kadaluarsa']);
+
+            // =========================
+            // 2) QUERY DATA (DENGAN FILTER DARI FRONTEND)
+            // =========================
+            $filteredQuery = Tiket::query()->with(['penumpang', 'jadwal']);
+
+            // no = id tiket
+            $filteredQuery->when($request->filled('no'), fn ($q) =>
+                $q->where('id', (int) $request->query('no'))
+            );
+
+            // status
+            // $filteredQuery->when($request->filled('status'), fn ($q) =>
+            //     $q->where('status', $request->query('status'))
+            // );
+            $filteredQuery->when($request->filled('status'), function ($q) use ($request) {
+                $normalized = $this->normalizeStatus($request->query('status'));
+
+                if ($normalized !== null) {
+                    $q->where('status', $normalized);
+                }
+            });            
+
+            // jenisKendaraan (asumsi kolom: tikets.jenis_kendaraan)
+            $filteredQuery->when($request->filled('jenisKendaraan'), fn ($q) =>
+                $q->where('jenis_kendaraan', $request->query('jenisKendaraan'))
+            );
+
+            // namaPengguna = penumpang.name
+            $filteredQuery->when($request->filled('namaPengguna'), function ($q) use ($request) {
+                $keyword = $request->query('namaPengguna');
+                $q->whereHas('penumpang', fn ($p) => $p->where('name', 'like', "%{$keyword}%"));
+            });
+
+            // rutePerjalanan = jadwal.nama_jadwal / lokasi_berangkat / lokasi_tiba
+            $filteredQuery->when($request->filled('rutePerjalanan'), function ($q) use ($request) {
+                $keyword = $request->query('rutePerjalanan');
+                $q->whereHas('jadwal', function ($j) use ($keyword) {
+                    $j->where(function ($w) use ($keyword) {
+                        $w->where('nama_jadwal', 'like', "%{$keyword}%")
+                        ->orWhere('lokasi_berangkat', 'like', "%{$keyword}%")
+                        ->orWhere('lokasi_tiba', 'like', "%{$keyword}%");
+                    });
+                });
+            });
+
+            // waktu berangkat (opsional exact)
+            // $filteredQuery->when($request->filled('waktu'), function ($q) use ($request) {
+            //     $q->whereHas('jadwal', fn ($j) => $j->where('waktu_berangkat', $request->query('waktu')));
+            // });
+
+            $filteredQuery->when($request->filled('waktu'), function ($q) use ($request) {
+                $this->applyWaktuFilter($q, (string) $request->query('waktu'));
+            });            
+
+            // =========================
+            // 3) totalKueri (sebelum vs sesudah filter)
+            // =========================
+            $totalFiltered = (clone $filteredQuery)->count(); // clone untuk pakai query yang sama [web:127][web:131]
+
+            // =========================
+            // 4) AMBIL DATA + MAPPING
+            // =========================
+            $tikets = $filteredQuery->orderByDesc('id')->get();
 
             $data = $tikets->map(function ($tiket) {
                 return [
@@ -31,20 +109,18 @@ class TiketController extends Controller
                     'penumpangId' => $tiket->penumpang_id,
                     'jadwalId' => $tiket->jadwal_id,
                     'status' => $tiket->status,
-                    'penumpangList' => json_decode($tiket->penumpang_list),
+                    'penumpangList' => json_decode($tiket->penumpang_list, true),
                     'nomorKendaraan' => $tiket->nomor_kendaraan,
                     'jenisKendaraan' => $tiket->jenis_kendaraan,
                     'kodeUnik' => $tiket->kode_unik,
                     'biaya_tiket' => $tiket->biaya_tiket,
 
-                    // Data Dari Tabel Penumpang
                     'penumpang' => $tiket->penumpang ? [
                         'id' => $tiket->penumpang->id,
-                        'nama' => $tiket->penumpang->nama,
+                        'nama' => $tiket->penumpang->name,
                         'nomorTelepon' => $tiket->penumpang->nomor_telepon,
                     ] : null,
 
-                    // Data Dari Tabel Jadwal
                     'jadwal' => $tiket->jadwal ? [
                         'id' => $tiket->jadwal->id,
                         'namaJadwal' => $tiket->jadwal->nama_jadwal,
@@ -52,27 +128,22 @@ class TiketController extends Controller
                         'waktuTiba' => $tiket->jadwal->waktu_tiba,
                         'lokasiBerangkat' => $tiket->jadwal->lokasi_berangkat,
                         'lokasiTiba' => $tiket->jadwal->lokasi_tiba,
-                        'biayaPerjalanan' => $tiket->jadwal->biaya_perjalanan,
-                        'biayaPenumpang' => $tiket->jadwal->biaya_penumpang,
-                        'biayaMotor' => $tiket->jadwal->biaya_motor,
-                        'biayaMobil' => $tiket->jadwal->biaya_mobil,
-                        'pajak' => $tiket->jadwal->pajak,
-                        'diskon' => $tiket->jadwal->diskon,
-                        'kapasitas' => $tiket->jadwal->kapasitas,
                         'namaKapal' => $tiket->jadwal->nama_kapal,
                     ] : null,
                 ];
             });
 
-            // Berikan response JSON
             return response()->json([
                 'data' => $data,
+                'meta' => $metaGlobal + [
+                    'totalKueri' => $totalFiltered,
+                ],
             ]);
         } catch (Throwable $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
-            ]);
+            ], 500);
         }
     }
 
@@ -138,7 +209,7 @@ class TiketController extends Controller
                 // Data Dari Tabel Penumpang
                 'penumpang' => $tiket->penumpang ? [
                     'id' => $tiket->penumpang->id,
-                    'nama' => $tiket->penumpang->nama,
+                    'nama' => $tiket->penumpang->name,
                     'nomorTelepon' => $tiket->penumpang->nomor_telepon,
                 ] : null,
 
@@ -196,7 +267,7 @@ class TiketController extends Controller
                 // Data Dari Tabel Penumpang
                 'penumpang' => $tiket->penumpang ? [
                     'id' => $tiket->penumpang->id,
-                    'nama' => $tiket->penumpang->nama,
+                    'nama' => $tiket->penumpang->name,
                     'nomorTelepon' => $tiket->penumpang->nomor_telepon,
                 ] : null,
 
@@ -241,7 +312,7 @@ class TiketController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateJadwalRequest $request, string $id)
+    public function update(UpdateTiketRequest $request, string $id)
     {
         try {
             $data = $request->validated();
@@ -249,13 +320,13 @@ class TiketController extends Controller
             $findTiket = Tiket::findOrFail($id);
 
             $findTiket->update([
-                'penumpang_id' => $data['penumpangId'],
-                'jadwal_id' => $data['jadwalId'],
-                'penumpang_list' => json_encode($data['penumpangList']),
-                'nomor_kendaraan' => $data['nomorKendaraan'],
-                'jenis_kendaraan' => $data['jenisKendaraan'],
-                'biaya_tiket' => $data['biayaTiket'],
-                'status' => $data['status'],
+                'penumpang_id' => $data['penumpangId'] ?? $findTiket['penumpang_id'],
+                'jadwal_id' => $data['jadwalId'] ?? $findTiket['jadwal_id'],
+                'penumpang_list' => array_key_exists('penumpangList', $data) ? json_encode($data['penumpangList']) : $findTiket->penumpang_list,
+                'nomor_kendaraan' => $data['nomorKendaraan'] ?? $findTiket['nomor_kendaraan'],
+                'jenis_kendaraan' => $data['jenisKendaraan'] ?? $findTiket['jenis_kendaraan'],
+                'biaya_tiket' => $data['biayaTiket'] ?? $findTiket['biaya_tiket'],
+                'status' => $data['status'] ?? $findTiket['status'],
             ]);
 
             return response()->json([
@@ -298,7 +369,7 @@ class TiketController extends Controller
                 // Data Dari Tabel Penumpang
                 'penumpang' => $findTiket->penumpang ? [
                     'id' => $findTiket->penumpang->id,
-                    'nama' => $findTiket->penumpang->nama,
+                    'nama' => $findTiket->penumpang->name,
                     'nomorTelepon' => $findTiket->penumpang->nomor_telepon,
                 ] : null,
 
@@ -371,7 +442,7 @@ class TiketController extends Controller
                     // Data Dari Tabel Penumpang
                     'penumpang' => $findTiket->penumpang ? [
                         'id' => $findTiket->penumpang->id,
-                        'nama' => $findTiket->penumpang->nama,
+                        'nama' => $findTiket->penumpang->name,
                         'nomorTelepon' => $findTiket->penumpang->nomor_telepon,
                     ] : null,
 
@@ -553,5 +624,151 @@ class TiketController extends Controller
                 'request' => $request->all()
             ]);
         }
+    }
+
+    private function applyWaktuFilter(Builder $filteredQuery, string $input): void
+    {
+        $s = trim(mb_strtolower($input));
+        $s = str_replace(['wib', ',', "\t"], [' ', ' ', ' '], $s);
+        $s = preg_replace('/\s+/', ' ', $s);
+
+        // 1) Deteksi hari (Indonesia) -> MySQL DAYOFWEEK: 1=Sunday ... 7=Saturday
+        // Minggu=1, Senin=2, Selasa=3, Rabu=4, Kamis=5, Jumat=6, Sabtu=7 [web:277]
+        $dowMap = [
+            'minggu' => 1,
+            'ahad'   => 1,
+            'senin'  => 2,
+            'selasa' => 3,
+            'rabu'   => 4,
+            'kamis'  => 5,
+            'jumat'  => 6,
+            'sabtu'  => 7,
+        ];
+
+        $dow = null;
+        foreach ($dowMap as $name => $num) {
+            if (preg_match('/\b'.preg_quote($name, '/').'\b/u', $s)) {
+                $dow = $num;
+                $s = preg_replace('/\b'.preg_quote($name, '/').'\b/u', ' ', $s);
+                $s = preg_replace('/\s+/', ' ', trim($s));
+                break;
+            }
+        }
+
+        // 2) Deteksi jam: "10:10", "10.10", "10:10 WIB", "10.10 WIB"
+        $time = null;
+        if (preg_match('/\b([01]?\d|2[0-3])[:.]([0-5]\d)\b/u', $s, $m)) {
+            $time = sprintf('%02d:%02d:00', (int) $m[1], (int) $m[2]);
+            $s = str_replace($m[0], ' ', $s);
+            $s = preg_replace('/\s+/', ' ', trim($s));
+        }
+
+        // 3) Deteksi tanggal numerik: 10-11-2025, 10/11/2025, 10,11,2025, 10.11.2025
+        $date = null;
+        if (preg_match('/\b(\d{1,2})[\/\-,.](\d{1,2})[\/\-,.](\d{4})\b/u', $s, $m)) {
+            $candidate = sprintf('%02d-%02d-%04d', (int) $m[1], (int) $m[2], (int) $m[3]);
+
+            // createFromFormat agar "d-m-Y" pasti dianggap day-month-year [web:268]
+            try {
+                $date = Carbon::createFromFormat('d-m-Y', $candidate)->toDateString();
+            } catch (\Throwable $e) {
+                $date = null;
+            }
+
+            $s = str_replace($m[0], ' ', $s);
+            $s = preg_replace('/\s+/', ' ', trim($s));
+        }
+
+        // 4) Deteksi bulan (Indonesia) + tahun (opsional)
+        $monthMap = [
+            'januari' => 1, 'februari' => 2, 'maret' => 3, 'april' => 4,
+            'mei' => 5, 'juni' => 6, 'juli' => 7, 'agustus' => 8,
+            'september' => 9, 'oktober' => 10, 'november' => 11, 'desember' => 12,
+        ];
+
+        $month = null;
+        foreach ($monthMap as $name => $num) {
+            if (preg_match('/\b'.preg_quote($name, '/').'\b/u', $s)) {
+                $month = $num;
+                $s = preg_replace('/\b'.preg_quote($name, '/').'\b/u', ' ', $s);
+                $s = preg_replace('/\s+/', ' ', trim($s));
+                break;
+            }
+        }
+
+        $year = null;
+        if (preg_match('/\b(19|20)\d{2}\b/', $s, $m)) {
+            $year = (int) $m[0];
+        }
+
+        // 5) Terapkan filter ke relasi jadwal.waktu_berangkat
+        $filteredQuery->whereHas('jadwal', function ($j) use ($dow, $date, $month, $year, $time) {
+            // Hari (MySQL-specific): DAYOFWEEK() mengembalikan 1..7 (Sunday..Saturday) [web:277]
+            if ($dow !== null) {
+                $j->whereRaw('DAYOFWEEK(waktu_berangkat) = ?', [$dow]);
+            }
+
+            // Tanggal lengkap
+            if ($date !== null) {
+                $j->whereDate('waktu_berangkat', $date); // whereDate untuk bagian tanggal [web:266]
+            }
+
+            // Bulan / Tahun parsial
+            if ($month !== null) {
+                $j->whereMonth('waktu_berangkat', $month); // whereMonth [web:266]
+            }
+            if ($year !== null) {
+                $j->whereYear('waktu_berangkat', $year); // whereYear [web:266]
+            }
+
+            // Jam saja / jam+tanggal
+            if ($time !== null) {
+                $j->whereTime('waktu_berangkat', $time);
+            }
+        });
+    }
+
+    private function normalizeStatus(?string $input): ?string
+    {
+        if ($input === null) return null;
+
+        $s = trim(mb_strtolower($input));
+
+        // samakan pemisah & buang karakter non huruf/underscore/spasi
+        $s = str_replace(['-', '.', ','], ' ', $s);
+        $s = preg_replace('/\s+/', ' ', $s);
+        $s2 = str_replace(' ', '_', $s); // untuk kasus "menunggu verifikasi" -> "menunggu_verifikasi"
+
+        // MENUNGGU_VERIFIKASI
+        if (
+            str_contains($s2, 'menunggu_verifikasi') ||
+            str_contains($s, 'menunggu') ||
+            str_contains($s, 'tunggu')
+        ) {
+            return 'menunggu_verifikasi';
+        }
+
+        // TERVERIFIKASI (tangkap typo umum: terverikasi)
+        if (
+            str_contains($s, 'terverifikasi') ||
+            str_contains($s, 'terverikasi') ||
+            str_contains($s, 'diverifikasi') ||
+            str_contains($s, 'verifikasi') ||
+            str_contains($s, 'verif')
+        ) {
+            return 'terverifikasi';
+        }
+
+        // DIBATALKAN
+        if (
+            str_contains($s, 'dibatalkan') ||
+            str_contains($s, 'terbatalkan') ||
+            str_contains($s, 'batal')
+        ) {
+            return 'dibatalkan';
+        }
+
+        // kalau tidak cocok, biarkan null (anggap invalid / tidak difilter)
+        return null;
     }
 }
