@@ -113,7 +113,7 @@ class TiketController extends Controller
                     'nomorKendaraan' => $tiket->nomor_kendaraan,
                     'jenisKendaraan' => $tiket->jenis_kendaraan,
                     'kodeUnik' => $tiket->kode_unik,
-                    'biaya_tiket' => $tiket->biaya_tiket,
+                    'biayaTiket' => $tiket->biaya_tiket,
 
                     'penumpang' => $tiket->penumpang ? [
                         'id' => $tiket->penumpang->id,

@@ -78,6 +78,16 @@ class JadwalFactory extends Factory
         // ambil harga random sesuai tujuan
         $biayaPerjalanan = $faker->numberBetween($biayaPerjalanan[$tujuan][0], $biayaPerjalanan[$tujuan][1]);
 
+        $rand = $faker->numberBetween(1, 100);
+
+        if ($rand <= 50) {
+            $biayaPromo = 0;
+        } elseif ($rand <= 80) {
+            $biayaPromo = $faker->numberBetween(5000, 50000);
+        } else {
+            $biayaPromo = $faker->numberBetween(20000, 100000);
+        }
+
         //----------------------------------------------------------------------
 
         $biayaPenumpang = [
@@ -131,7 +141,7 @@ class JadwalFactory extends Factory
             'biaya_motor' => $biayaMotor,
             'biaya_mobil' => $biayaMobil,
             'pajak' => 11.0,
-            'diskon' => 0,
+            'diskon' => $biayaPromo,
             'kapasitas' => $faker->numberBetween(25, 50) * 2,
             'nama_kapal' => $kapal,
         ];

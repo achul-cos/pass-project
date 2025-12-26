@@ -26,7 +26,7 @@ class Jadwal extends Model
         'nama_kapal'
     ];
 
-    public function tikets()
+    public function tiket()
     {
         return $this->hasMany(Tiket::class);
     }

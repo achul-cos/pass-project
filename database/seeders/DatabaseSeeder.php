@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             PetugasSeeder::class,
             HardwareSeeder::class,
             ParkirSeeder::class,
+            PelabuhanSeeder::class,
         ]);
     }
 }

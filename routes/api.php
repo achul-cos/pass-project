@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\JadwalController as V1JadwalController;
 use App\Http\Controllers\Api\V1\TiketController as V1TiketController;
 use App\Http\Controllers\Api\V1\KendaraanController as V1KendaraanController;
 use App\Http\Controllers\Api\V1\PenumpangController as V1PenumpangController;
+use App\Http\Controllers\Api\V1\PelabuhanController as V1PelabuhanController;
 
 Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
     return $request->user();
@@ -26,6 +27,8 @@ Route::prefix('v1')->group(function () {
     Route::post('kendaraans/restore/{id}', [V1KendaraanController::class, 'restore'])->name('Kendaraans.restore');
 
     route::apiResource('penumpangs', V1PenumpangController::class);
+
+    route::apiResource('pelabuhan', V1PelabuhanController::class);
 });
 
 
