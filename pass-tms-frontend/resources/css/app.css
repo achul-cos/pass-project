@@ -1,0 +1,97 @@
+@import 'tailwindcss';
+
+@plugin "flyonui";
+@import "../../node_modules/flyonui/variants.css";
+@import "../../node_modules/flatpickr/dist/flatpickr.css";
+@import "../../node_modules/flyonui/src/vendor/flatpickr.css";
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@import '../../vendor/livewire/flux/dist/flux.css';
+
+@import '../../node_modules/aos/dist/aos.css';
+
+@font-face {
+    font-family: 'Plus-Jakarta-Sans';
+    src: url("../fonts/PlusJakartaSans-VariableFont_wght.ttf") format("truetype");
+
+    /* 
+    ExtraLight 200
+    Light 300
+    Regular 400
+    Medium 500
+    SemiBold 600
+    Bold 700
+    ExtraBold 800 
+    */
+
+}
+
+@font-face {
+    font-family: 'Plus-Jakarta-Sans-Italis';
+    src: url("../fonts/PlusJakartaSans-Italic-VariableFont_wght.ttf") format("truetype");
+
+    /*
+    ExtraLight 200 Italic
+    Light 300 Italic
+    Regular 400 Italic
+    Medium 500 Italic
+    SemiBold 600 Italic
+    Bold 700 Italic
+    ExtraBold 800 Italic    
+    */
+}
+
+@theme {
+    --font-sans: 'Plus-Jakarta-Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-italic: 'Plus-Jakarta-Sans-Italis';
+    --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    --color-yellow: #FAB12F;
+    --color-orange: #FA812F;
+    --color-white: #FEF3E2;
+    --color-aqua: #73C8D2;
+    --color-blue: #0546d8;
+    --color-black: #3A3023;
+    --color-dark: #9e6111;
+}
+
+@layer base {
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear {
+    display: none;
+  }
+
+  input[type="password"]::-webkit-textfield-decoration-container {
+    display: none;
+  }
+
+  input[type="password"]::-moz-password-toggle {
+    display: none;
+  }
+
+  input[list]::-webkit-calendar-picker-indicator {
+    display: none !important;
+  }  
+
+  /* Untuk Chrome, Safari, Edge, dan Opera */
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  /* Untuk Firefox */
+  input[type=number] {
+    -moz-appearance: textfield;
+  }  
+
+  select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }  
+}
