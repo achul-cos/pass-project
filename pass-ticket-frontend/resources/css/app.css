@@ -1,0 +1,117 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@import '../../node_modules/aos/dist/aos.css';
+
+@font-face {
+    font-family: 'Plus-Jakarta-Sans';
+    src: url("../fonts/PlusJakartaSans-VariableFont_wght.ttf") format("truetype");
+
+    /* 
+    ExtraLight 200
+    Light 300
+    Regular 400
+    Medium 500
+    SemiBold 600
+    Bold 700
+    ExtraBold 800 
+    */
+
+}
+
+@font-face {
+    font-family: 'Plus-Jakarta-Sans-Italis';
+    src: url("../fonts/PlusJakartaSans-Italic-VariableFont_wght.ttf") format("truetype");
+
+    /*
+    ExtraLight 200 Italic
+    Light 300 Italic
+    Regular 400 Italic
+    Medium 500 Italic
+    SemiBold 600 Italic
+    Bold 700 Italic
+    ExtraBold 800 Italic    
+    */
+}
+
+@theme {
+    --font-sans: 'Plus-Jakarta-Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-italic: 'Plus-Jakarta-Sans-Italis';
+    --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    --color-yellow: #FAB12F;
+    --color-orange: #FA812F;
+    --color-white: #FEF3E2;
+    --color-aqua: #73C8D2;
+    --color-blue: #0546d8;
+    --color-black: #3A3023;
+    --color-dark: #9E6111;
+    --color-abswhite: #FFFFFF;
+}
+
+@layer base {
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear {
+    display: none;
+  }
+
+  input[type="password"]::-webkit-textfield-decoration-container {
+    display: none;
+  }
+
+  input[type="password"]::-moz-password-toggle {
+    display: none;
+  }
+
+  /* Untuk Chrome, Safari, Edge, dan Opera */
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  /* Untuk Firefox */
+  input[type=number] {
+    -moz-appearance: textfield;
+  }  
+
+  select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }  
+}
+
+
+/**
+    The lines above are intact.
+    The lines below were added by maryUI installer.
+*/
+
+/** daisyUI */
+@plugin "daisyui" {
+    themes: light --default, dark --prefersdark;
+}
+
+/* maryUI */
+@source "../../vendor/robsontenorio/mary/src/View/Components/**/*.php";
+
+/* Theme toggle */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/**
+* Paginator - Traditional style
+* Because Laravel defaults does not match well the design of daisyUI.
+*/
+
+.mary-table-pagination span[aria-current="page"] > span {
+    @apply bg-primary text-base-100
+}
+
+.mary-table-pagination button {
+    @apply cursor-pointer
+}
