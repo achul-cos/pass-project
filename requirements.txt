@@ -1,0 +1,5 @@
+opencv-python==4.8.1.78
+
+.\venv\Scripts\Activate.ps1
+
+python -m pip install opencv-python
